@@ -1,0 +1,32 @@
+Parts list
+(Probably incomplete)
+
+On the PCB
+
+1 pcs Universal Single Side PCB Board Glass Fiber PCB Circuit Board 9x15cm
+1 pcs ESP32 Development Board ESP-32 ESP-32S WiFi Bluetooth Dual Cores CPU MCU Board IOT For LuaNode For NodeMcu
+1 pcs RFM69HW 868Mhz Transceiver Module DC1.8-3.6V High Integrated Hope RF Wireless RFM69HW-868S2 Module
+1 pcs 1.27MM 2.0MM 2.54MM 12 Pin Adapter Board For Wireless Modules
+1 pcs BME280 Digital Sensor Temperature Humidity Barometric Pressure Sensor Module GY-BME280 I2C SPI 1.8-5V
+1 pcs DCF1 DCF77 receiver board w/ antenna
+
+1 pcs 4 Poles/4 Pin 2.54mm/0.1" PCB Universal Screw Terminal Block Connector
+1 pcs JST-XH Connector with cable and PCB connector - 4 Pins
+
+1 pcs 2.0mm Pitch 12 Pin Female Single Row Straight Header Strip Connector
+2 pcs Single row female 2.54mm Pitch PCB Female Pin Header Connector Straight Single Row 15 Pin
+1 pcs Single row female 2.54mm Pitch PCB Female Pin Header Connector Straight Single Row 4 Pin
+10pcs 40 Pin 1x40 Single Row Male 2.54 Breakable Pin Header Connector Strip for arduino Diy Kit
+10PCS/Lot 2mm 40 Pin Male Single Row Pin Header Strip 1*40P 2.0mm male pin header copper connector
+  
+  Wires in various colors
+
+1 resistor 10 kOhm
+1 resistor 570 Ohm (not 570 kOhm!)
+
+To anemometer
+
+1 pcs male Euchner SD12 12 pins connector (vintage)
+2 m LiYCY cable 5 x 0.75 mm² Grey
+1 pcs DIN-connector plug male, straight pins: 5
+1 pcs DIN-connector plug female, straight pins: 5
