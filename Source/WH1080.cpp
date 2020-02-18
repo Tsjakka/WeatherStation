@@ -211,8 +211,10 @@ void WH1080::fillSensorBuffer(byte *buf) {
   // Reverse of: float temperature = ((float)temperatureRaw) / 10;
   short temperatureRaw = weatherData.temperature * 10;
 
-  // Reverse of: unsigned short temperatureRaw = (((unsigned short)buf[1] & 0x0f) << 8) | buf[2];
-  buf[1] |= (temperatureRaw & 0x0f00) >> 8;
+  // Reverse of: int16_t temp  = ((sbuf [1] & 0x07) << 8) | sbuf[2];
+  buf[1] |= (temperatureRaw & 0x0700) >> 8;
+  //Reverseof:uint8_tsign=(sbuf[1]>>3)&1;
+  if(temperatureRaw<0)buf[1]|=0x08;
   buf[2] = (temperatureRaw & 0x00ff);
 
   // Reverse of: int humidity = buf[3];

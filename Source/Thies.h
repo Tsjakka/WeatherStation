@@ -14,7 +14,7 @@
 
 #include "Arduino.h"
 
-const int NUM_SPEED_SAMPLES = 2400;             // Number of samples to store for wind speed (one per 0.25s for the last 10 minutes)
+const int NUM_SPEED_SAMPLES = 192;              // Number of samples to store for wind speed (one per 0.25s for the last 48 seconds)
 const int NUM_GUST_SAMPLES = 12;                // Number of samples to use for wind gust (one per 0.25s for the last 3 seconds)
 const int NUM_DIR_SAMPLES = 600;                // Number of samples to store for wind direction (one per second for the last 10 minutes)
 
