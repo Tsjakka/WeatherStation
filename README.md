@@ -46,7 +46,7 @@ Also the OTA functionality turned out to be tricky. One of the problems was that
 
 In the end, I got everything working properly. Here you can see the weather station in action:
 
-![Outside](https://github.com/Tsjakka/WeatherStation/blob/master/Photos/IMG_2628.JPG)
+![Outside](https://github.com/Tsjakka/WeatherStation/blob/master/Photos/IMG_2650.JPG)
 
 Although it was frustrating at times, I enjoyed this project as a creative and learning experience. The results can be seen on my weather site, http://www.blixemboschweer.nl. I hope some of you will make use of the results, perhaps even by building your own weather station. Please report on your experience if you can.
 
