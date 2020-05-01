@@ -31,13 +31,14 @@ public:
 
   // Variables for weather measurement
   struct WeatherData {
-	  byte deviceID = 0;
-	  float temperature = 0;
-	  float humidity = 0;
-	  float windSpeed = 0;
-	  float windGust = 0;
-	  byte windDir = 0;
-	  unsigned short rain = 0;
+    byte deviceID = 0;
+    float temperature = 0;
+    float humidity = 0;
+    float windSpeed = 0;
+    float windGust = 0;
+    byte windDir = 0;
+    unsigned short rain = 0;
+    bool lowBatt = false;                     // Show the low battery indicator
   };
   
   // Variables for handling the DCF77 time signal

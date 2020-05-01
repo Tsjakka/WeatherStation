@@ -179,7 +179,7 @@ void WH1080::resetRain()
   with:
   AAAA = 1010    Message type: 0xA: sensor readings
   BBBBBBBB       Station ID / rolling code: Changes with battery insertion.
-  CCCCCCCCCCCC   Temperature*10 in celsius. Binary format MSB is sign
+  CCCCCCCCCCCC   Temperature * 10 in celsius. Binary format MSB is sign
   DDDDDDDD       Humidity in %. Binary format 0-100. MSB (bit 7) unused.
   EEEEEEEE       Windspeed
   FFFFFFFF       Wind gust
@@ -209,17 +209,18 @@ void WH1080::fillSensorBuffer(byte *buf) {
   buf[1] = (deviceID & 0x0f) << 4;
 
   // Reverse of: float temperature = ((float)temperatureRaw) / 10;
-  short temperatureRaw = weatherData.temperature * 10;
+  short temperatureRaw = round(weatherData.temperature * 10.0f);
+  short temperaturePos = temperatureRaw >= 0 ? temperatureRaw : -temperatureRaw;
 
-  // Reverse of: int16_t temp  = ((sbuf [1] & 0x07) << 8) | sbuf[2];
-  buf[1] |= (temperatureRaw & 0x0700) >> 8;
-  //Reverseof:uint8_tsign=(sbuf[1]>>3)&1;
-  if(temperatureRaw<0)buf[1]|=0x08;
-  buf[2] = (temperatureRaw & 0x00ff);
+  // Reverse of: int16_t temp = ((sbuf[1] & 0x07) << 8) | sbuf[2];
+  buf[1] |= ((temperaturePos & 0x0700) >> 8);
+  // Reverse of: uint8_t sign = (sbuf[1] >> 3) & 1;
+  if (temperatureRaw < 0) buf[1] |= 0x08;
+  buf[2] = (temperaturePos & 0x00ff);
 
   // Reverse of: int humidity = buf[3];
   short humidityRaw = round(weatherData.humidity);
-  buf[3] = (humidityRaw <= 99 ? humidityRaw : 99);
+  buf[3] = (humidityRaw <= 99 ? (humidityRaw & 0xff) : 99);
 
   // Reverse of: unsigned short windAvgRaw = (unsigned short)buf[4];
   short windAvgRaw = round(weatherData.windSpeed / 0.34f);
@@ -230,8 +231,8 @@ void WH1080::fillSensorBuffer(byte *buf) {
   short windGustRaw = round(weatherData.windGust / 0.34f);
   buf[5] = (windGustRaw & 0xff);
 
-  // Just sending the number of pulses.
-  short rainRaw = weatherData.rain;
+  // Just sending the number of pulses for rain.
+  unsigned short rainRaw = weatherData.rain;
 
   // Reverse of: unsigned short rainRaw = (((unsigned short)buf[6] & 0x0f) << 8) | buf[7];
   buf[6] = (rainRaw & 0x0f00) >> 8;
@@ -240,7 +241,11 @@ void WH1080::fillSensorBuffer(byte *buf) {
   Serial.println(rainRaw);
 
   // Reverse of: int direction = buf[8] & 0x0f;
-  buf[8] = weatherData.windDir;
+  buf[8] = (weatherData.windDir & 0x0f);
+
+  if (weatherData.lowBatt) {
+    buf[8] |= 0x10;
+  }
 
   buf[9] = crc8(buf, 9);
 
@@ -249,10 +254,10 @@ void WH1080::fillSensorBuffer(byte *buf) {
 //    printf("%02X ", buf[i]);
 //  }
 
-  printf("\nStation ID: %02X\n", deviceID);
-  printf("Temperature: %0.1fC, Humidity: %f%%\n", weatherData.temperature, weatherData.humidity);
-  printf("Wind speed: %0.2f m/s, Gust speed: %0.2f m/s, Direction: %d\n", weatherData.windSpeed, weatherData.windGust, weatherData.windDir);
-  printf("Total rain: %d pulses\n", weatherData.rain);
+  printf("\nRaw data:\n");
+  printf("Station ID: %02X, Temperature: %d, Humidity: %d\n", deviceID, temperatureRaw, humidityRaw);
+  printf("Wind speed: %d, Gust speed: %d, Direction: %02X\n", windAvgRaw, windGustRaw, buf[8]);
+  printf("Total rain: %d pulses\n", rainRaw);
 }
 
 void WH1080::sendWh1080Message(byte* message, byte length) {
@@ -575,7 +580,7 @@ void WH1080::initializeRfm() {
   Serial.print(rfm.GetFrequency());
   Serial.println(" kHz");
 }
-  
+
 //
 // Helper functions
 //
