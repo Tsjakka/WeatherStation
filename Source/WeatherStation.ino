@@ -53,9 +53,11 @@ const uint32_t connectPeriod = 90;              // Max period (in s) for setting
 const uint32_t rebootIntoWifiPeriod = 20000;    // If rebooted within this period (in ms) after startup, the system will start in OTA update mode
 
 uint16_t numBoots = 0;
-uint8_t startWifi = 0;
+uint8_t startWifi = 0;              // Checked at startup; 0 is regular boot, 8 is a boot into wifi
 bool webServerRunning = false;
 bool testMode = false;              // Set to true to run only unit tests
+char loginPageUpdate[700];
+char numBootsText[5];
 
 // Timer interrupt declarations
 volatile uint32_t timerInterruptCounter = 0;
@@ -121,13 +123,13 @@ void HandleSerialPort(char c) {
 //#######################################################################################
 // ArduinoOTA Login Page
 
-const char* loginIndex = 
+const char* loginPage = 
  "<form name='loginForm'>"
     "<table width='20%' bgcolor='A09F9F' align='center'>"
         "<tr>"
             "<td colspan=2>"
-                "<center><font size=4><b>ESP32 Login Page</b></font></center>"
-                "<br>"
+                "<center><font size=4><b>ESP32 Login Page</b>"
+                "<br>Number of boots:     </font></center>"
             "</td>"
             "<br>"
             "<br>"
@@ -165,7 +167,7 @@ const char* loginIndex =
 //#######################################################################################
 // Upload Page
  
-const char* serverIndex = 
+const char* uploadPage = 
 "<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>"
 "<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
    "<input type='file' name='update'>"
@@ -224,6 +226,7 @@ void setup() {
   // If the right value was set in EEPROM, start WiFi and wait for the software to be updated.
   // Otherwise, start in weather station mode. This solution was chosen because several GPIOs
   // are used that conflict with the use of WiFi.
+  // Please note that two power cycles are needed to get ADC2 working correctly again after WiFi was used.
   if (startWifi != 0) {
     // Make sure WiFi will not be started again at the next boot.
     preferences.putUChar("startWifi", 0);
@@ -267,15 +270,20 @@ void setup() {
   //      }
   //    }
   //    Serial.println("mDNS responder started");
-      
-      // Return index page, which is stored in serverIndex, on GET
+
+      // Put the number of boots in the index page
+      strcpy(loginPageUpdate, loginPage);
+      sprintf(numBootsText, "%4d", numBoots);
+      strncpy(&loginPageUpdate[157], numBootsText, 4);
+
+      // Return index page, which is stored in uploadPage, on GET
       server.on("/", HTTP_GET, []() {
         server.sendHeader("Connection", "close");
-        server.send(200, "text/html", loginIndex);
+        server.send(200, "text/html", loginPageUpdate);
       });
       server.on("/serverIndex", HTTP_GET, []() {
         server.sendHeader("Connection", "close");
-        server.send(200, "text/html", serverIndex);
+        server.send(200, "text/html", uploadPage);
       });
       
       // Handle uploading firmware file on POST
@@ -296,15 +304,18 @@ void setup() {
           if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
             Update.printError(Serial);
           }
-        } else if (upload.status == UPLOAD_FILE_WRITE) {
+        } 
+        else if (upload.status == UPLOAD_FILE_WRITE) {
           // Flashing firmware to ESP
           if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
             Update.printError(Serial);
           }
-        } else if (upload.status == UPLOAD_FILE_END) {
+        } 
+        else if (upload.status == UPLOAD_FILE_END) {
           if (Update.end(true)) { // true to set the size to the current progress
-            Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-          } else {
+            Serial.printf("Update successful: %u\nRebooting...\n", upload.totalSize);
+          } 
+          else {
             Update.printError(Serial);
           }
         }
@@ -329,11 +340,11 @@ void setup() {
     if (bme.begin(0x76)) {
       // Set BME280 to scenario for weather monitoring
       Serial.println("Setting BME280 to weather station scenario:");
-      Serial.println("  Forced mode, 1x temperature / 1x humidity / 1x pressure oversampling, filter off");
+      Serial.println("  Forced mode, 8x temperature / 8x humidity / 8x pressure oversampling, filter off");
       bme.setSampling(Adafruit_BME280::MODE_FORCED,
-                      Adafruit_BME280::SAMPLING_X1, // Temperature
-                      Adafruit_BME280::SAMPLING_X1, // Pressure
-                      Adafruit_BME280::SAMPLING_X1, // Humidity
+                      Adafruit_BME280::SAMPLING_X8, // Temperature
+                      Adafruit_BME280::SAMPLING_X8, // Pressure
+                      Adafruit_BME280::SAMPLING_X8, // Humidity
                       Adafruit_BME280::FILTER_OFF);
     }
     else {

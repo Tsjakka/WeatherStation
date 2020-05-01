@@ -132,14 +132,16 @@ int Thies::sampleWindDirection() {
 
   // Store the sample while checking successive samples for continuity (see WMO document).
   // If two successive samples differ by more than 180 degrees (= 8), the difference
-  // is decreased by adding or subtracting 360 degrees (= 16) from the second sample.
-  // Because of this, some samples can be negative.
-  if (abs(direction - dirValuePrevious) > 8) {
-    if (abs(direction - 16 - dirValuePrevious) < abs(direction + 16 - dirValuePrevious)) {
-      direction -= 16;
-    }
-    else {
-      direction += 16;
+  // is decreased by adding or subtracting 360 degrees (= 16) to/from the second sample.
+  // Because of this, samples can be negative or larger than 15.
+  if (dirValuePrevious != 999) {
+    if (abs(direction - dirValuePrevious) > 8) {
+      if (abs(direction - 16 - dirValuePrevious) < abs(direction + 16 - dirValuePrevious)) {
+        direction -= 16;
+      }
+      else {
+        direction += 16;
+      }
     }
   }
 
@@ -196,20 +198,22 @@ short Thies::calculateWindDirection(int analogValue) {
 
 // Return the current average of the wind direction samples
 byte Thies::getWindDirection() {
+  // Use this code if there is a problem with the running sum.
   //long dirSum = 0;
   //for (int i = 0; i < NUM_DIR_SAMPLES; i++) {
   //  dirSum += dirValues[i];
   //}
   //int direction = round(dirSum / dirValuesCount);
+  
+  float average = dirValuesSum / dirValuesCount;
+  int direction = round(average);
 
-  int direction = round(dirValuesSum / dirValuesCount);
-  if (direction < 0) {
-    direction += 16;
-  }
-  if (direction > 15) {
-    direction -= 16;
-  }
+  // Push it within the bounds of the weather station (0..15)
+  direction = direction % 16;
+  if (direction < 0) direction += 16;
 
+  //printf("Sum of dir values: %ld, count: %d, average: %0.3f, running sum: %ld\n", dirSum, dirValuesCount, average, dirValuesSum);
+      
   return (byte)direction;
 }
 
@@ -225,7 +229,7 @@ void Thies::resetVars() {
   dirValuesIndex = 0;
   dirValuesCount = 0;
   dirValuesSum = 0;
-  dirValuePrevious = 0;
+  dirValuePrevious = 999;   // 999 means uninitialized
 
   // Initialize the arrays to zeros
   for (int i = 0; i < NUM_SPEED_SAMPLES; i++) {
