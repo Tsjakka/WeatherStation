@@ -1,6 +1,6 @@
 /***************************************************************************
   This sketch makes a Fine Offset WH1080 compatible remote sensor unit out
-  of an ESP32, a professional Thies anemometer and a BME280 sensor board.
+  of an ESP32, a professional Thies anemometer and an SHT31 sensor board.
   Refer to http://blixemboschweer.nl/ for more information on the used hardware.
 
   This sketch would not have been posible without the help of people who
@@ -8,7 +8,7 @@
   * http://www.susa.net/wordpress/2012/08/raspberry-pi-reading-wh1081-weather-sensors-using-an-rfm01-and-rfm12b/
   * https://www.sevenwatt.com/main/wh1080-protocol-v2-fsk/
   * https://github.com/rinie/LaCrosseITPlusReader
-  * The people at Adafruit for their BME280 library.
+  * The people at Adafruit for their SHT31 library.
   * https://lastminuteengineers.com/esp32-ota-web-updater-arduino-ide/
   * https://blog.blinkenlight.net/experiments/dcf77/dcf77-receiver-modules/
   * https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
@@ -18,22 +18,15 @@
   Written by Tsjakka from The Netherlands.
   MIT license, this comment block must be included in any redistribution.
  ***************************************************************************/
-#include <DCF77.h>
-#include <vfs_api.h>
-#include <FSImpl.h>
-#include <FS.h>
-#include <Adafruit_Sensor.h>
-#include <Wire.h>
-#include <SPI.h>
 #include <Time.h>
+#include <TimeLib.h>
+#include <DCF77.h>
 #include <Preferences.h>
 #include <WiFi.h>
-#include <WiFiClient.h>
 #include <WebServer.h>
-#include <HTTP_Method.h>
-//#include <ESPmDNS.h>
 #include <Update.h>
-#include <Adafruit_BME280.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_SHT31.h>
 //#include <BH1750.h>
 #include "WH1080.h"
 #include "Thies.h"
@@ -42,7 +35,7 @@ Preferences preferences;
 WebServer server(80);
 WH1080 wh1080;          // The class that takes care of communicating with the base station.
 Thies thies;            // The class that collects information from the Thies anemometer.
-Adafruit_BME280 bme;    // The class that controls the BME280 sensor.
+Adafruit_SHT31 sht = Adafruit_SHT31();    // The class that controls the SHT31 sensor.
 //BH1750 lightMeter;      // The class that controls the BH1750 sensor. Disabled (the WH1080 does not support this).
 WH1080::WeatherData weatherData;    // Data structure for passing weather data to WH1080 class.
 
@@ -262,6 +255,8 @@ void setup() {
   
     if (WiFi.status() == WL_CONNECTED) {
       Serial.println("Connected");
+      Serial.print("IP address: ");
+      Serial.println(WiFi.localIP());
       // Use mDNS for host name resolution
   //    if (!MDNS.begin(host)) { //http://esp32.local
   //      Serial.println("Error setting up MDNS responder!");
@@ -335,20 +330,10 @@ void setup() {
   else {
     Serial.println("Starting in weather station mode");
 
-    // Check for the BME280 sensor
-    Serial.println(F("Starting BME280 sensor"));
-    if (bme.begin(0x76)) {
-      // Set BME280 to scenario for weather monitoring
-      Serial.println("Setting BME280 to weather station scenario:");
-      Serial.println("  Forced mode, 8x temperature / 8x humidity / 8x pressure oversampling, filter off");
-      bme.setSampling(Adafruit_BME280::MODE_FORCED,
-                      Adafruit_BME280::SAMPLING_X8, // Temperature
-                      Adafruit_BME280::SAMPLING_X8, // Pressure
-                      Adafruit_BME280::SAMPLING_X8, // Humidity
-                      Adafruit_BME280::FILTER_OFF);
-    }
-    else {
-      Serial.println(F("Could not find a valid BME280 sensor, please check wiring."));
+    // Check for the SHT31 sensor
+    Serial.println(F("Starting SHT31 sensor"));
+    if (!sht.begin(0x44)) {
+      Serial.println(F("Could not find a valid SHT31 sensor, please check wiring."));
     }
   
     //Serial.println(F("BH1750 initialization"));
@@ -451,8 +436,6 @@ void loop() {
       windDirDivider--;
     }
 
-    //Wire.begin(BME280_ADDRESS_ALT);
-
     // Check if we need to calculate and transmit weather data (once every 48s)
     if (isrTime >= previousTransmitAt + LOOP_PERIOD) {
       previousTransmitAt = previousTransmitAt + LOOP_PERIOD;
@@ -465,21 +448,13 @@ void loop() {
       Serial.print(isrTime);
       Serial.println(" ms");
 
-      // Start measurement
-      bme.takeForcedMeasurement();
-      
       // Temperature and pressure
-      weatherData.temperature = bme.readTemperature();
+      weatherData.temperature = sht.readTemperature();
       Serial.print(F("Temperature = "));
       Serial.print(weatherData.temperature);
       Serial.println(" *C");
 
-      // The base station has its own barometer, so no need to send pressure
-      Serial.print(F("Pressure = "));
-      Serial.print(bme.readPressure() / 100.0F);
-      Serial.println(" hPa");
-
-      weatherData.humidity = bme.readHumidity();
+      weatherData.humidity = sht.readHumidity();
       Serial.print(F("Humidity = "));
       Serial.print(weatherData.humidity);
       Serial.println(" %");
