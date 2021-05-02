@@ -21,9 +21,6 @@
     <ClInclude Include="__vm\.WeatherStation.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Help.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="RFMxx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -36,14 +33,8 @@
     <ClInclude Include="WH1080.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="LessOld\RFMxx.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Help.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="RFMxx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

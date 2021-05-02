@@ -1,0 +1,23 @@
+To compile the WeatherStation code, you will have to install the ESP32 boards package
+for the Arduino IDE and a several libraries.
+
+In the Arduino IDE, go to the Preferences (shortcut Ctrl+comma) and enter the following
+URL after "Additional Boards Manager URLs:". If there already is a URL there, you may
+add the URL to the existing one, separated by a comma.
+
+https://dl.espressif.com/dl/package_esp32_index.json
+
+Then, select the ESP32 device you are using by selecting Tools / Board and then the device.
+
+In the Tools / Library Manager dialog install the following libraries.
+
+Adafruit BusIO
+Adafruit SHT31 Library
+Adafruit Unified Sensor
+ArduinoOTA
+DCF77
+SPIFlash_LowPowerLab
+RFM69_LowPowerLab
+Time
+
+If you get a build error on DCF77.c, then add #include <TimeLib.h> to C:\Users\<your_name>\Documents\Arduino\libraries\DCF77\DCF77.h below #include <Time.h>.
