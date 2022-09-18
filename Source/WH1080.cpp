@@ -1,7 +1,7 @@
 /***************************************************************************
   This sketch makes a Fine Offset WH1080 compatible remote sensor unit out
   of an ESP32, a professional Thies anemometer and a BMP280 sensor board.
-  Refer to http://blixemboschweer.nl/ for more information on the used hardware.
+  Refer to https://blixemboschweer.nl/ for more information on the used hardware.
 
   Starting point for this file was the file with the same name written for
   the LaCrosseITPlusReader project (https://github.com/rinie/LaCrosseITPlusReader).
@@ -29,24 +29,13 @@ RFMxx rfm(23, 19, 18, 5, 17, 32);
 RFMxx rfm(SS, 17, 32);                    // The class that takes care of communicating through the RFM69WH
 #endif
 
-volatile short rainDetectedCounter = 0;   // Number of buckets tips counted
-volatile short rainRejectedCounter = 0;   // Number of rejected inputs from the rain sensor
-volatile unsigned long rainSignalTime = 0;// The moment that a signal was measured on the rain pin
-volatile bool rainSignalDetected = false; // True if a signal was measured on the rain pin
+volatile unsigned short rainDetectedCounter = 0;   // Number of buckets tips counted
+volatile unsigned long rainSignalTime = 0;// The moment that a signal was measured on the rain gauge pin
+volatile bool rainSignalDetected = false; // True if a signal was measured on the rain gauge pin
 volatile bool rainSignalHandled = true;   // True if the rain signal was handled
-volatile int rainSample;                  // The value measured on the rain pin
-
-//portMUX_TYPE rainMux = portMUX_INITIALIZER_UNLOCKED;
+volatile int rainSample;                  // The value measured on the rain gauge pin
 
 DCF77 dcf = DCF77(dcfInterruptPin, digitalPinToInterrupt(dcfInterruptPin), true);  // The class that takes care of handling DCF clock messages
-
-// Handle interrupts from the rain sensor.
-//void IRAM_ATTR handleRainInterrupt() {
-//  portENTER_CRITICAL_ISR(&rainMux);
-//  rainInterruptTime = millis();
-//  rainInterruptDetected = true;
-//  portEXIT_CRITICAL_ISR(&rainMux);
-//}
 
 void WH1080::initialize() {
   // Initialize rain gauge
@@ -85,24 +74,11 @@ void WH1080::initialize() {
 
 // Return the amount of rain (in mm) that fell since startup / reset.
 unsigned short WH1080::readRain() {
-  unsigned short rainPulses = 0;
-
-  // Keep the interrupt count and restart measuring
-  //portENTER_CRITICAL(&rainMux);
-  rainPulses = rainDetectedCounter;
-  //portEXIT_CRITICAL(&rainMux);
-
-  return rainPulses;
+  return rainDetectedCounter;
 }
 
 void WH1080::sampleRainGauge() {
-  //bool interruptDetected = false;
-
-  // Check if an interrupt was detected
-//  portENTER_CRITICAL(&rainMux);
-//  interruptDetected = rainInterruptDetected;
-//  portEXIT_CRITICAL(&rainMux);
-
+  // Check if the rain gauge is pulling the input low, i.e. the start of a tip of the bucket
   if (!rainSignalDetected && rainSignalHandled) {
     rainSample = digitalRead(rainSignalPin);
     if (rainSample == LOW) {
@@ -112,40 +88,44 @@ void WH1080::sampleRainGauge() {
     }
   }
 
-  // If a signal was measured from the bucket, check if the signal resembles 
-  // the signal of the tip of a bucket.
+  // If a signal was measured from the rain gauge, check if the signal resembles 
+  // a tip of the bucket.
   // A tip of the bucket in the rain gauge (the orignal one of the Alecto
-  // weather station) pulls the input to zero for slightly less than 100ms.
+  // weather station) pulls the input to zero for around 90 ms.
   if (!rainSignalHandled) {
     unsigned long currentTime = millis();
 
-    // The reading should be zero for around 100 ms following the interrupt.
-    // Check for this with some margins.
-    if (rainSignalDetected &&
-        (currentTime - rainSignalTime > 20) &&
-        (currentTime - rainSignalTime < 80)) {
+    // The reading should be zero for around 90 ms. Check for the signal to still 
+    // be LOW around that mark within some margins. This will filter out spikes.
+    if ((currentTime - rainSignalTime > 60) &&
+        (currentTime - rainSignalTime < 120)) {
       rainSample = digitalRead(rainSignalPin);
       if (rainSample == LOW) {
-        rainDetectedCounter++;
-        
-        //portENTER_CRITICAL(&rainMux);
         rainSignalDetected = false;
-        //portEXIT_CRITICAL(&rainMux);
-        
-        Serial.print("Rain measured: ");
-        Serial.println(rainDetectedCounter);
+      }
+      else {
+        // When the signal is HIGH, check if we also saw LOW within the margins
+        if (!rainSignalDetected) {
+          rainDetectedCounter++;
+          
+          Serial.print("Rain measured: ");
+          Serial.println(rainDetectedCounter);        
+        }        
+        else {
+          Serial.println("Rain reading rejected");
+        }
+        rainSignalDetected = false;
+        rainSignalHandled = true;
       }
     } 
-    else if (currentTime - rainSignalTime > 120) {
-      rainRejectedCounter++;
-      
-      //portENTER_CRITICAL(&rainMux);
-      rainSignalDetected = false;
-      rainSignalHandled = true;
-      //portEXIT_CRITICAL(&rainMux);
-      
-      Serial.print("Rain interrupt rejected");
-      Serial.println(rainRejectedCounter);
+    else if (currentTime - rainSignalTime >= 120) {
+      // Make sure we first see HIGH before checking for LOW again
+      rainSample = digitalRead(rainSignalPin);
+      if (rainSample == HIGH) {
+        // Start checking for new signals
+        rainSignalDetected = false;
+        rainSignalHandled = true;
+      }
     }    
   }
 }
@@ -153,7 +133,6 @@ void WH1080::sampleRainGauge() {
 void WH1080::resetRain()
 {
   rainDetectedCounter = 0;
-  rainRejectedCounter = 0;
 }
 
 

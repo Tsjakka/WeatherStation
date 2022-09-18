@@ -1,7 +1,7 @@
 /***************************************************************************
   This sketch makes a Fine Offset WH1080 compatible remote sensor unit out
   of an ESP32, a professional Thies anemometer and a BMP280 sensor board.
-  Refer to http://blixemboschweer.nl/ for more information on the used hardware.
+  Refer to https://blixemboschweer.nl/ for more information on the used hardware.
 
   Starting point for this file was the file with the same name written for
   the LaCrosseITPlusReader project (https://github.com/rinie/LaCrosseITPlusReader).
