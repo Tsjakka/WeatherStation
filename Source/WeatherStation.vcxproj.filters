@@ -33,6 +33,27 @@
     <ClInclude Include="WH1080.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TFA_Rain.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="decoder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="r_device.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bitbuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="data.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="decoder_util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="RFMxx.cpp">
@@ -45,6 +66,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WH1080.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TFA_Rain.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

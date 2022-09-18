@@ -1,7 +1,7 @@
 /***************************************************************************
   This sketch makes a Fine Offset WH1080 compatible remote sensor unit out
   of an ESP32, a professional Thies anemometer and an SHT31 sensor board.
-  Refer to http://blixemboschweer.nl/ for more information on the used hardware.
+  Refer to https://blixemboschweer.nl/ for more information on the used hardware.
 
   This sketch would not have been posible without the help of people who
   shared their code and knowledge on the internet. For example:
@@ -556,5 +556,8 @@ void loop() {
         thies.resetVars();
       }
     }
+  }
+  else {
+    delay(1);
   }
 }
