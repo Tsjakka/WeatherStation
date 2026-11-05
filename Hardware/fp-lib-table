@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "WeatherStation")(type "KiCad")(uri "${KIPRJMOD}/WeatherStation.pretty")(options "")(descr "Footprints made for the weather station"))
+)

@@ -4,3 +4,9 @@ Secrets.h
 # Visual Studio / Visual Micro
 .vs/
 __vm/
+
+# KiCad local and backup files
+*.kicad_prl
+*-backups/
+fp-info-cache
+*.lck
