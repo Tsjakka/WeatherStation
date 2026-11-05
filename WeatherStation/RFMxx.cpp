@@ -303,7 +303,6 @@ void RFMxx::Receive() {
 #define RF_RSSI_BIT     0x0100
 
     // try
-    bool hasData = digitalRead(m_irq) == 0;
     //	while ((digitalRead(m_irq) == 0) && !m_payloadReady) {{
     while ((spi16(0) & RF_FIFO_BIT) && !m_payloadReady) {
       {
@@ -576,6 +575,9 @@ void RFMxx::SendArray(byte *data, byte length) {
     EnableReceiver(false);
     ClearFifo();
 
+    // The packet handler sends exactly PayloadLength bytes after the preamble and sync word.
+    WriteReg(REG_PAYLOADLENGTH, length);
+
     noInterrupts();
 
     SPI.beginTransaction(SPISettings(SPI_CLOCK_DIV4, MSBFIRST, SPI_MODE0));
@@ -583,12 +585,11 @@ void RFMxx::SendArray(byte *data, byte length) {
 
     SPI.transfer(REG_FIFO | 0x80);
 
-    while ((i < length)) { // && !(ReadReg(REG_IRQFLAGS2) & RF_IRQFLAGS2_FIFOFULL)) {
+    // Fill the FIFO. It holds only RF69_FIFO_SIZE bytes, the rest is added while transmitting.
+    while (i < length && i < RF69_FIFO_SIZE) {
       SPI.transfer(data[i]);
       i++;
     }
-    Serial.print("Bytes written to fifo: ");
-    Serial.println(i);
 
     digitalWrite(m_ss, HIGH);
     SPI.endTransaction();
@@ -597,11 +598,25 @@ void RFMxx::SendArray(byte *data, byte length) {
 
     EnableTransmitter(true);
 
-    // Wait until transmission is finished
+    // Add the remaining bytes as soon as there is room in the FIFO
     unsigned long txStart = millis();
+    while (i < length && millis() - txStart < 500) {
+      if (!(ReadReg(REG_IRQFLAGS2) & RF_IRQFLAGS2_FIFOFULL)) {
+        WriteReg(REG_FIFO, data[i]);
+        i++;
+      }
+    }
+
+    // Wait until transmission is finished
     while (!(ReadReg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PACKETSENT) && millis() - txStart < 500);
 
     EnableTransmitter(false);
+
+    // Restore the payload length used for receiving
+    WriteReg(REG_PAYLOADLENGTH, PAYLOADSIZE);
+
+    Serial.print("Bytes written to fifo: ");
+    Serial.println(i);
   }
   else {
     // Transmitter on

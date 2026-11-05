@@ -30,6 +30,7 @@
 //#include <BH1750.h>
 #include "WH1080.h"
 #include "Thies.h"
+#include "Secrets.h"    // Wifi credentials, see below. This file is not stored in git.
 
 Preferences preferences;
 WebServer server(80);
@@ -39,18 +40,46 @@ Adafruit_SHT31 sht = Adafruit_SHT31();    // The class that controls the SHT31 s
 //BH1750 lightMeter;      // The class that controls the BH1750 sensor. Disabled (the WH1080 does not support this).
 WH1080::WeatherData weatherData;    // Data structure for passing weather data to WH1080 class.
 
-const char* host      = "WeatherStation";       // Host name used for Preferences and DNS
-const char* ssid      = "<MyNetworkName>";      // Network name
-const char* password  = "<MyPassword>";         // Network password
+// ************************************************************************
+// Create file Secrets.h with the following contents. Replace with your
+// information where indicated.
+// ************************************************************************
+/*
+// Wifi connection
+const char* host      = "WeatherStation";               // Host name used for Preferences and DNS
+const char* ssid      = "REPLACE_WITH_YOUR_SSID";       // Network name
+const char* password  = "REPLACE_WITH_YOUR_PASSWORD";   // Network password
+
+// Optional: user name and password for the OTA update page (default admin / submit)
+//#define OTA_USER      "REPLACE_WITH_A_USER_NAME"
+//#define OTA_PASSWORD  "REPLACE_WITH_A_PASSWORD"
+*/
+// ************************************************************************
+// End of Secrets.h
+// ************************************************************************
+
+#ifndef OTA_USER
+#define OTA_USER "admin"
+#endif
+#ifndef OTA_PASSWORD
+#define OTA_PASSWORD "submit"
+#endif
+
 const uint32_t connectPeriod = 90;              // Max period (in s) for setting up a wifi connection
 const uint32_t rebootIntoWifiPeriod = 20000;    // If rebooted within this period (in ms) after startup, the system will start in OTA update mode
+const uint32_t otaModePeriod = 600000;          // Max period (in ms) to stay in OTA update mode without an update, then reboot into weather station mode
 
 uint16_t numBoots = 0;
 uint8_t startWifi = 0;              // Checked at startup; 0 is regular boot, 8 is a boot into wifi
 bool webServerRunning = false;
+bool updateAuthorized = false;      // True if the firmware upload in progress was sent by an authenticated user
 bool testMode = false;              // Set to true to run only unit tests
-char loginPageUpdate[700];
-char numBootsText[5];
+String indexPage;                   // The OTA update page, with the number of boots filled in
+
+// SHT31 state. When a reading fails, the last valid values are transmitted.
+bool shtFound = false;              // True if the SHT31 responded to begin()
+uint16_t shtFailures = 0;           // Number of failed readings in a row
+const uint16_t SHT_FAILURES_BEFORE_RESTART = 3;  // Restart the sensor after this many failed readings in a row
 
 // Timer interrupt declarations
 volatile uint32_t timerInterruptCounter = 0;
@@ -65,7 +94,7 @@ volatile SemaphoreHandle_t timerSemaphore;
 // Handle timer interrupts (every 0.25s)
 void IRAM_ATTR onTimer() {
   portENTER_CRITICAL_ISR(&timerMux);
-  timerInterruptCounter++;
+  timerInterruptCounter = timerInterruptCounter + 1;
   currentIsrAt = millis();
   portEXIT_CRITICAL_ISR(&timerMux);
 
@@ -81,7 +110,6 @@ bool timeTransmitted = false;       // True if the time has been sent to the bas
 
 void HandleSerialPort(char c) {
   static unsigned long value;
-  unsigned char buf[20];
 
   if ('0' <= c && c <= '9') {
     value = 10 * value + c - '0';
@@ -114,53 +142,14 @@ void HandleSerialPort(char c) {
 }
 
 //#######################################################################################
-// ArduinoOTA Login Page
+// OTA Update Page
+// The page is protected by HTTP Basic authentication (OTA_USER / OTA_PASSWORD), which the
+// web server checks, so the upload cannot be done without logging in.
+// {BOOTS} is replaced by the number of boots.
 
-const char* loginPage = 
- "<form name='loginForm'>"
-    "<table width='20%' bgcolor='A09F9F' align='center'>"
-        "<tr>"
-            "<td colspan=2>"
-                "<center><font size=4><b>ESP32 Login Page</b>"
-                "<br>Number of boots:     </font></center>"
-            "</td>"
-            "<br>"
-            "<br>"
-        "</tr>"
-        "<td>Username:</td>"
-        "<td><input type='text' size=25 name='userid'><br></td>"
-        "</tr>"
-        "<br>"
-        "<br>"
-        "<tr>"
-            "<td>Password:</td>"
-            "<td><input type='Password' size=25 name='pwd'><br></td>"
-            "<br>"
-            "<br>"
-        "</tr>"
-        "<tr>"
-            "<td><input type='submit' onclick='check(this.form)' value='Login'></td>"
-        "</tr>"
-    "</table>"
-"</form>"
-"<script>"
-    "function check(form)"
-    "{"
-    "if(form.userid.value=='admin' && form.pwd.value=='submit')"
-    "{"
-    "window.open('/serverIndex')"
-    "}"
-    "else"
-    "{"
-    " alert('Error Password or Username')/*displays error message*/"
-    "}"
-    "}"
-"</script>";
- 
-//#######################################################################################
-// Upload Page
- 
-const char* uploadPage = 
+const char* indexPageTemplate =
+"<center><font size=4><b>Weather Station</b>"
+"<br>Number of boots: {BOOTS}</font></center><br>"
 "<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>"
 "<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
    "<input type='file' name='update'>"
@@ -189,17 +178,54 @@ const char* uploadPage =
   "return xhr;"
   "},"
   "success:function(d, s) {"
-  "console.log('success!')" 
+  "$('#prg').html('Update: ' + d + ', rebooting');"
  "},"
  "error: function (a, b, c) {"
+  "$('#prg').html('Update failed: ' + c);"
  "}"
  "});"
  "});"
  "</script>";
 
 //#######################################################################################
+// Helper functions
+
+// Reboot into weather station mode after OTA update mode.
+void restartWithoutWifi() {
+  // Disconnect WiFi. Apparently, this is necessary in order to use ADC2 GPIO after the reboot.
+  WiFi.disconnect();
+  delay(100);
+  WiFi.mode(WIFI_OFF);
+  delay(500);
+  ESP.restart();
+}
+
+// Read temperature and humidity from the SHT31 into weatherData. If the reading fails,
+// weatherData keeps the last valid values and the sensor is restarted after a few failures.
+void readSht31() {
+  float temperature, humidity;
+
+  if (shtFound && sht.readBoth(&temperature, &humidity) && !isnan(temperature) && !isnan(humidity)) {
+    weatherData.temperature = temperature;
+    weatherData.humidity = humidity;
+    shtFailures = 0;
+    return;
+  }
+
+  shtFailures++;
+  Serial.print(F("SHT31 reading failed ("));
+  Serial.print(shtFailures);
+  Serial.println(F(" in a row), sending the last valid values"));
+
+  if (!shtFound || shtFailures % SHT_FAILURES_BEFORE_RESTART == 0) {
+    Serial.println(F("Restarting SHT31 sensor"));
+    shtFound = sht.begin(0x44);
+  }
+}
+
+//#######################################################################################
 // Setup and Loop
- 
+
 void setup() {
   Serial.begin(115200);
 
@@ -267,39 +293,43 @@ void setup() {
   //    Serial.println("mDNS responder started");
 
       // Put the number of boots in the index page
-      strcpy(loginPageUpdate, loginPage);
-      sprintf(numBootsText, "%4d", numBoots);
-      strncpy(&loginPageUpdate[157], numBootsText, 4);
+      indexPage = indexPageTemplate;
+      indexPage.replace("{BOOTS}", String(numBoots));
 
-      // Return index page, which is stored in uploadPage, on GET
+      // Return the index page on GET, after logging in
       server.on("/", HTTP_GET, []() {
+        if (!server.authenticate(OTA_USER, OTA_PASSWORD)) {
+          return server.requestAuthentication();
+        }
         server.sendHeader("Connection", "close");
-        server.send(200, "text/html", loginPageUpdate);
+        server.send(200, "text/html", indexPage);
       });
-      server.on("/serverIndex", HTTP_GET, []() {
-        server.sendHeader("Connection", "close");
-        server.send(200, "text/html", uploadPage);
-      });
-      
+
       // Handle uploading firmware file on POST
       server.on("/update", HTTP_POST, []() {
+        if (!updateAuthorized) {
+          return server.requestAuthentication();
+        }
         server.sendHeader("Connection", "close");
         server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-
-        // Disconnect WiFi. Apparently, this is necessary in order to use ADC2 GPIO after the reboot.
-        WiFi.disconnect();
-        delay(100);
-        WiFi.mode(WIFI_OFF);
-        delay(500);
-        ESP.restart();
+        restartWithoutWifi();
       }, []() {
         HTTPUpload& upload = server.upload();
         if (upload.status == UPLOAD_FILE_START) {
+          // Check the login before writing anything to flash
+          updateAuthorized = server.authenticate(OTA_USER, OTA_PASSWORD);
+          if (!updateAuthorized) {
+            Serial.println("Update refused: not logged in");
+            return;
+          }
           Serial.printf("Update: %s\n", upload.filename.c_str());
           if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
             Update.printError(Serial);
           }
-        } 
+        }
+        else if (!updateAuthorized) {
+          // Ignore the rest of an upload that was refused
+        }
         else if (upload.status == UPLOAD_FILE_WRITE) {
           // Flashing firmware to ESP
           if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
@@ -313,6 +343,10 @@ void setup() {
           else {
             Update.printError(Serial);
           }
+        }
+        else if (upload.status == UPLOAD_FILE_ABORTED) {
+          Serial.println("Update aborted");
+          Update.abort();
         }
       });
       
@@ -332,8 +366,9 @@ void setup() {
 
     // Check for the SHT31 sensor
     Serial.println(F("Starting SHT31 sensor"));
-    if (!sht.begin(0x44)) {
-      Serial.println(F("Could not find a valid SHT31 sensor, please check wiring."));
+    shtFound = sht.begin(0x44);
+    if (!shtFound) {
+      Serial.println(F("Could not find a valid SHT31 sensor, please check wiring. Will retry."));
     }
   
     //Serial.println(F("BH1750 initialization"));
@@ -346,23 +381,46 @@ void setup() {
   
     // Start monitoring the rain gauge
     wh1080.initialize();
-  
+
+    // Keep the same station ID across reboots, so the base station keeps receiving our data.
+    // On the very first boot, the random ID made up by wh1080.initialize() is stored.
+    byte stationId = preferences.getUChar("stationId", 0);
+    if (stationId == 0) {
+      stationId = wh1080.deviceID;
+      preferences.putUChar("stationId", stationId);
+    }
+    wh1080.deviceID = stationId;
+    Serial.print("Station ID: ");
+    Serial.println(stationId, HEX);
+
     Serial.println("Setting up timer interrupt for wind speed calculation");
-  
+
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+    // ESP32 Arduino core 3.x: create a timer that counts at 1 MHz.
+    timer = timerBegin(1000000);
+
+    // Attach onTimer function to our timer.
+    timerAttachInterrupt(timer, &onTimer);
+
+    // Call onTimer every 0.25s (250000 counts), repeat forever.
+    timerAlarm(timer, 250000, true, 0);
+#else
+    // ESP32 Arduino core 1.x/2.x
     // Use first timer of 4 (counted from zero).
     // Set divider to 40000 for prescaler. At 80 MHz clock speed this means that a trigger is
     // given 2000 times per second (see ESP32 Technical Reference Manual for more info).
     timer = timerBegin(0, 40000, true);
-  
+
     // Attach onTimer function to our timer.
     timerAttachInterrupt(timer, &onTimer, true);
-  
+
     // Set alarm to call onTimer function every 0.25s
     // Repeat the alarm (third parameter)
     timerAlarmWrite(timer, 500, true);
-  
+
     // Start the first alarm
     timerAlarmEnable(timer);
+#endif
 
     // Make sure WiFi will be started at the next boot, if it occurs within rebootIntoWifiPeriod ms.
     preferences.putUChar("startWifi", 8);
@@ -384,8 +442,8 @@ void setup() {
 
 // The main loop of this sketch handles collecting weather and time data and sending it to the base station (WH1080).
 void loop() {
-  int windDirSample;
-  
+  int windDirSample __attribute__((unused));    // Only used by the calibration test code below
+
   // When the system is running more than 20s, the user does not want to reboot into OTA mode.
   if (startWifi == 0 && millis() > rebootIntoWifiPeriod) {
     Serial.println("Next boot will be in weather station mode");
@@ -401,6 +459,12 @@ void loop() {
   if (webServerRunning) {
     // Handle the webserver for OTA
     server.handleClient();
+
+    // Don't stay in OTA update mode forever, e.g. after two quick power cycles.
+    if (millis() > otaModePeriod && !Update.isRunning()) {
+      Serial.println("No update received, rebooting into weather station mode");
+      restartWithoutWifi();
+    }
   }
   else {
     // Check the rain bucket for rain
@@ -436,9 +500,10 @@ void loop() {
       windDirDivider--;
     }
 
-    // Check if we need to calculate and transmit weather data (once every 48s)
-    if (isrTime >= previousTransmitAt + LOOP_PERIOD) {
-      previousTransmitAt = previousTransmitAt + LOOP_PERIOD;
+    // Check if we need to calculate and transmit weather data (once every 48s).
+    // Written as a subtraction, so it keeps working when millis() rolls over after 49.7 days.
+    if (isrTime - previousTransmitAt >= LOOP_PERIOD) {
+      previousTransmitAt += LOOP_PERIOD;
 
       // Print timer interrupt count and time
       Serial.println("-------------------------------------------");
@@ -448,13 +513,12 @@ void loop() {
       Serial.print(isrTime);
       Serial.println(" ms");
 
-      // Temperature and pressure
-      weatherData.temperature = sht.readTemperature();
+      // Temperature and humidity
+      readSht31();
       Serial.print(F("Temperature = "));
       Serial.print(weatherData.temperature);
       Serial.println(" *C");
 
-      weatherData.humidity = sht.readHumidity();
       Serial.print(F("Humidity = "));
       Serial.print(weatherData.humidity);
       Serial.println(" %");

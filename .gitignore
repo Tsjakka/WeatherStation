@@ -1,0 +1,6 @@
+# Wifi credentials, see WeatherStation.ino
+Secrets.h
+
+# Visual Studio / Visual Micro
+.vs/
+__vm/

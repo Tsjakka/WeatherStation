@@ -5,19 +5,21 @@ In the Arduino IDE, go to the Preferences (shortcut Ctrl+comma) and enter the fo
 URL after "Additional Boards Manager URLs:". If there already is a URL there, you may
 add the URL to the existing one, separated by a comma.
 
-https://dl.espressif.com/dl/package_esp32_index.json
+https://espressif.github.io/arduino-esp32/package_esp32_index.json
 
-Then, select the ESP32 device you are using by selecting Tools / Board and then the device.
+Then, in the Tools / Board / Boards Manager dialog install "esp32 by Espressif Systems".
+The code builds with version 2.x and 3.x of this package. Select the ESP32 device you
+are using by selecting Tools / Board and then the device.
 
 In the Tools / Library Manager dialog install the following libraries.
 
 Adafruit BusIO
-Adafruit SHT31 Library
+Adafruit SHT31 Library (version 2.0 or later)
 Adafruit Unified Sensor
-ArduinoOTA
 DCF77
-SPIFlash_LowPowerLab
-RFM69_LowPowerLab
 Time
+
+Finally, create the file Secrets.h next to WeatherStation.ino with your WiFi credentials.
+WeatherStation.ino shows what it should contain. Secrets.h is excluded from git.
 
 If you get a build error on DCF77.c, then add #include <TimeLib.h> to C:\Users\<your_name>\Documents\Arduino\libraries\DCF77\DCF77.h below #include <Time.h>.

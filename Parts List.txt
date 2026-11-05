@@ -7,7 +7,7 @@ On the PCB
 1 pcs ESP32 Development Board ESP-32 ESP-32S WiFi Bluetooth Dual Cores CPU MCU Board IOT For LuaNode For NodeMcu
 1 pcs RFM69HW 868Mhz Transceiver Module DC1.8-3.6V High Integrated Hope RF Wireless RFM69HW-868S2 Module
 1 pcs 1.27MM 2.0MM 2.54MM 12 Pin Adapter Board For Wireless Modules
-1 pcs BME280 Digital Sensor Temperature Humidity Barometric Pressure Sensor Module GY-BME280 I2C SPI 1.8-5V
+1 pcs SHT31 Temperature Humidity Sensor Module (I2C, address 0x44) - replaced the original BME280 in 2021
 1 pcs DCF1 DCF77 receiver board w/ antenna
 
 1 pcs 4 Poles/4 Pin 2.54mm/0.1" PCB Universal Screw Terminal Block Connector
