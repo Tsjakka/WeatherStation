@@ -1,6 +1,6 @@
 /***************************************************************************
   This sketch makes a Fine Offset WH1080 compatible remote sensor unit out
-  of an ESP32, a professional Thies anemometer and a BMP280 sensor board.
+  of an ESP32, a professional Thies anemometer and an SHT31 sensor board.
   Refer to https://blixemboschweer.nl/ for more information on the used hardware.
 
   This file handles the Thies anemometer that I used in my project (type
@@ -21,7 +21,7 @@ portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 // Handle pulses from the wind speed sensor
 void IRAM_ATTR handleWindInterrupt() {
   portENTER_CRITICAL_ISR(&mux);
-  windInterruptCounter++;
+  windInterruptCounter = windInterruptCounter + 1;
   portEXIT_CRITICAL_ISR(&mux);
 }
 
@@ -106,6 +106,10 @@ void Thies::sampleWindSpeed() {
 
 // Return the current average of the wind speed samples
 float Thies::getWindSpeed() {
+  if (speedPulsesCount == 0) {
+    return 0;
+  }
+
   float speed = (float)speedPulsesSum;
   speed = speed / (speedPulsesCount * 5); // 1 m/s equals 20 pulses per second (= 5 pulses per 0.25s)
 
@@ -132,17 +136,15 @@ int Thies::sampleWindDirection() {
 
   // Store the sample while checking successive samples for continuity (see WMO document).
   // If two successive samples differ by more than 180 degrees (= 8), the difference
-  // is decreased by adding or subtracting 360 degrees (= 16) to/from the second sample.
-  // Because of this, samples can be negative or larger than 15.
+  // is decreased by adding or subtracting a multiple of 360 degrees (= 16) to/from the
+  // second sample. Because of this, samples can be negative or larger than 15. When the
+  // wind keeps turning in the same direction, the previous sample can be several turns
+  // away from 0..15, so the step is calculated modulo 16 instead of adding 16 only once.
   if (dirValuePrevious != 999) {
-    if (abs(direction - dirValuePrevious) > 8) {
-      if (abs(direction - 16 - dirValuePrevious) < abs(direction + 16 - dirValuePrevious)) {
-        direction -= 16;
-      }
-      else {
-        direction += 16;
-      }
-    }
+    int step = (direction - dirValuePrevious) % 16;   // -15..15
+    if (step < 0) step += 16;                         // 0..15
+    if (step > 8) step -= 16;                         // -7..8
+    direction = dirValuePrevious + step;
   }
 
   //Serial.print(direction);
@@ -205,7 +207,12 @@ byte Thies::getWindDirection() {
   //}
   //int direction = round(dirSum / dirValuesCount);
   
-  float average = dirValuesSum / dirValuesCount;
+  if (dirValuesCount == 0) {
+    return 0;
+  }
+
+  // Divide as floats, otherwise the average is truncated before it is rounded.
+  float average = (float)dirValuesSum / dirValuesCount;
   int direction = round(average);
 
   // Push it within the bounds of the weather station (0..15)
@@ -223,8 +230,6 @@ void Thies::resetVars() {
   speedPulsesIndex = 0;
   speedPulsesCount = 0;
   speedPulsesSum = 0;
-  gustPulsesIndex = 0;
-  gustPulsesCount = 0;
   gustPulsesSum = 0;
   dirValuesIndex = 0;
   dirValuesCount = 0;
@@ -234,9 +239,6 @@ void Thies::resetVars() {
   // Initialize the arrays to zeros
   for (int i = 0; i < NUM_SPEED_SAMPLES; i++) {
     speedPulses[i] = 0;
-  }
-  for (int i = 0; i < NUM_GUST_SAMPLES; i++) {
-    gustPulses[i] = 0;
   }
   for (int i = 0; i < NUM_DIR_SAMPLES; i++) {
     dirValues[i] = 0;

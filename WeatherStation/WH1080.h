@@ -1,6 +1,6 @@
 /***************************************************************************
   This sketch makes a Fine Offset WH1080 compatible remote sensor unit out
-  of an ESP32, a professional Thies anemometer and a BMP280 sensor board.
+  of an ESP32, a professional Thies anemometer and an SHT31 sensor board.
   Refer to https://blixemboschweer.nl/ for more information on the used hardware.
 
   Starting point for this file was the file with the same name written for
@@ -49,9 +49,9 @@ public:
   int months = 0;
   int days = 0;
 
-  void initialize();                          // Start monitoring interrupts from anemometer
+  void initialize();                          // Start monitoring the rain gauge and DCF receiver, and initialize the RFM69
   unsigned short readRain();                  // Return the number of pulses from the rain gauge since the last reset
-  void sampleRainGauge();                     // Check for tipping of the rain bucket
+  void sampleRainGauge();                     // Check if the last pulse from the rain gauge was a tip of the bucket
   void resetRain();                           // Rain needs to be reset every 24h
   void setSensorData(struct WH1080::WeatherData* frame);  // Supply weather data to this class
   void transmitSensorData();                  // Send the weather data to the WH1080 base station

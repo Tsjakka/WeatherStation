@@ -1,6 +1,6 @@
 /***************************************************************************
   This sketch makes a Fine Offset WH1080 compatible remote sensor unit out
-  of an ESP32, a professional Thies anemometer and a BMP280 sensor board.
+  of an ESP32, a professional Thies anemometer and an SHT31 sensor board.
   Refer to https://blixemboschweer.nl/ for more information on the used hardware.
 
   This file handles the Thies anemometer that I used in my project (type
@@ -22,11 +22,11 @@ class Thies {
   public:
     void initialize();                          // Start monitoring interrupts from anemometer
     void sampleWindSpeed();                     // Run this function every 0.25s to store a wind speed sample
-    float getWindSpeed();                       // Get the average wind speed over the last 10 minutes
+    float getWindSpeed();                       // Get the average wind speed over the last 48 seconds
     float getWindGust();                        // Get the maximum wind gust since the last call to this method
     void resetWindGust();                       // Reset the wind gust
     int sampleWindDirection();                  // Run this function every second to store a wind direction sample
-    byte getWindDirection();                    // Get the average wind direction over the last 10 minutes (0 to 15 for N, NNE, NE, ENE, E, etc.)
+    byte getWindDirection();                    // Get the average wind direction over the last 48 seconds (0 to 15 for N, NNE, NE, ENE, E, etc.)
     void resetVars();                           // Reset the running variables to prevent faulty data to propagate over time
     void unitTest();                            // Test the methods above
 
@@ -35,10 +35,7 @@ class Thies {
     int speedPulsesIndex = 0;                   // Index of the current element in the array above
     int speedPulsesCount = 0;                   // Number of elements that have a value in the array above (useful at startup)
     long speedPulsesSum = 0L;                   // The sum of all values in the array above
-    int gustPulses[NUM_GUST_SAMPLES];           // A circular buffer for storing wind pulses
-    int gustPulsesIndex = 0;                    // Index of the current element in the array above
-    int gustPulsesCount = 0;                    // Number of elements that have a value in the array above (useful at startup)
-    long gustPulsesSum = 0L;                    // The sum of all values in the array above
+    long gustPulsesSum = 0L;                    // The sum of the last NUM_GUST_SAMPLES values in speedPulses
     float gust;                                 // The gust in m/s
     short dirValues[NUM_DIR_SAMPLES];           // A circular buffer for storing wind direction
     int dirValuesIndex = 0;                     // Index of the current element in the array above

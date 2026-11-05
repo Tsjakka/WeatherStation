@@ -10,7 +10,7 @@ Since the anemometer does not come with a display or anything, I thought about c
 After some failed attempts at solution 1, I decided to go for option 2. Discussing this solution with a friend, I decided to recreate the outdoor unit using the following parts:
 
 * An ESP32 microcontroller
-* A Bosch BME280 temperature/pressure/humidity sensor
+* A Bosch BME280 temperature/pressure/humidity sensor (in 2021 replaced by a Sensirion SHT31 temperature/humidity sensor, because the BME280 was not reliable enough)
 * A DCF1 DCF time receiver
 * A Hope RMF69HW RF transceiver
 * The Thiess 3323.21.002 anemometer

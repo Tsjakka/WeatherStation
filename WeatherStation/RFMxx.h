@@ -10,6 +10,7 @@
 
 #define USE_TIME_H
 #define PAYLOADSIZE 64
+#define RF69_FIFO_SIZE 66   // Size of the RFM69 FIFO in bytes
 #define IsRF69 m_radioType == RFM69CW
 
 class RFMxx {
