@@ -2395,7 +2395,7 @@
 		)
 		(uuid "e260b554-abb7-5dcd-a83b-9eef6d1cca24")
 	)
-	(text "Mounting holes for the Kradex Z74JH enclosure (screws in the bosses of the bottom half)"
+	(text "Mounting holes for the Kradex Z74JH enclosure (screws in the bosses of the upper half of the box)"
 		(exclude_from_sim no)
 		(at 147.32 236.22 0)
 		(effects
